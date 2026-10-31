@@ -131,6 +131,22 @@ export function createSound() {
         tone({ type: 'triangle', freq: 2800 + Math.random() * 2200, at: 0.05 + i * 0.09, dur: 0.08, gain: 0.03 });
       }
     },
+    // Campanadas de medianoche (parciales inarmónicos, como una campana real).
+    bells(count) {
+      for (let i = 0; i < count; i++) {
+        const at = i * 0.65;
+        for (const [mult, gain] of [[1, 0.35], [2.76, 0.12], [5.4, 0.05]]) {
+          tone({ freq: 196 * mult, at, dur: 2.6, gain });
+        }
+      }
+    },
+    // Pausa el audio cuando la pestaña queda en segundo plano.
+    suspend() {
+      if (ctx?.state === 'running') ctx.suspend();
+    },
+    resume() {
+      if (ctx?.state === 'suspended') ctx.resume();
+    },
     // Tu respiración; `nervous` la hace corta y entrecortada.
     breath(nervous = false) {
       const inhale = nervous ? 0.45 : 0.9;

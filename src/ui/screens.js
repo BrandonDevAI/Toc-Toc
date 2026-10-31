@@ -1,4 +1,14 @@
+import { ANOMALIES, DECOYS } from '../data/anomalies.js';
+
 const $ = (id) => document.getElementById(id);
+
+const ENDINGS = {
+  midnight: { title: '🌕 ¡Sobreviviste a la medianoche!', line: 'No le abriste a lo que no tenía cuerpo.' },
+  letIn: { title: '🩸 Lo dejaste entrar...', line: 'A medianoche no había nadie en el porche. Y aun así abriste.' },
+  dead: { title: '💀 Se apagaron tus velas', line: 'Abriste demasiadas veces.' },
+};
+
+const CLUE_NAMES = Object.fromEntries([...ANOMALIES, ...DECOYS].map((c) => [c.id, c.name]));
 
 const RESULT_COPY = {
   happyKid: {
@@ -57,16 +67,34 @@ export function createScreens() {
             : outcome.points < 0 ? `${outcome.points}` : '';
       show('result');
     },
-    summary({ run, won, best, isRecord }) {
-      $('summary-title').textContent = won ? '🌕 ¡Sobreviviste a la noche!' : '💀 Fin de la noche';
+    summary({ run, ending, best, isRecord }) {
+      const copy = ENDINGS[ending];
+      $('summary-title').textContent = copy.title;
+      $('summary-line').textContent = copy.line;
       $('summary-score').textContent = run.score;
       $('summary-record').hidden = !isRecord;
       $('summary-stats').textContent =
         `${run.correct} aciertos · ${run.wrong} errores · ${run.candy} dulces sobrantes · récord ${best}`;
+
+      // Pistas que viste esta noche: ✓ si siempre acertaste con ellas.
+      const clues = $('summary-clues');
+      clues.replaceChildren(...Object.entries(run.seen).map(([id, ok]) => {
+        const chip = document.createElement('li');
+        chip.className = ok ? 'chip chip--ok' : 'chip chip--miss';
+        chip.textContent = `${ok ? '✓' : '✗'} ${CLUE_NAMES[id]}`;
+        return chip;
+      }));
+      $('share-status').textContent = '';
       show('summary');
+    },
+    shareStatus(text) {
+      $('share-status').textContent = text;
     },
     onStart(fn) {
       document.querySelectorAll('[data-action="start"]').forEach((btn) => btn.addEventListener('click', fn));
+    },
+    onShare(fn) {
+      $('btn-share').addEventListener('click', fn);
     },
   };
 }

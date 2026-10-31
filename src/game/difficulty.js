@@ -27,4 +27,11 @@ export const NIGHT = [
     fog: 0.85, flicker: 1,
     tip: 'Última hora antes de medianoche... ¿parpadean? ¿tocan el piso?',
   },
+  // Evento final: un solo visitante especial. Ver createMidnightVisitor.
+  {
+    hour: '12 AM', visitors: 1, timer: 6, monsterRate: 1,
+    tiers: {}, decoyRate: 0,
+    fog: 1, flicker: 1, midnight: true, introTime: 4.2,
+    tip: 'Medianoche. Un último golpe en la puerta...',
+  },
 ];

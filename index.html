@@ -2,8 +2,17 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Toc Toc</title>
+  <meta name="description" content="Es noche de Halloween y tocan a tu puerta. Mira por la mirilla y decide: ¿niño disfrazado o monstruo de verdad?">
+  <meta name="theme-color" content="#0d0716">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Toc Toc: ¿niño o monstruo?">
+  <meta property="og:description" content="Juego de Halloween: mira por la mirilla y decide si abres la puerta. ¿Sobrevivirás a la medianoche?">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚪</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
@@ -56,10 +65,16 @@
 
       <section class="overlay" id="screen-summary" hidden>
         <h2 class="summary-title" id="summary-title"></h2>
+        <p class="summary-line" id="summary-line"></p>
         <p class="big-score" id="summary-score">0</p>
         <p class="record" id="summary-record" hidden>🏆 ¡Nuevo récord!</p>
         <p class="muted" id="summary-stats"></p>
-        <button class="btn btn--open btn--wide" data-action="start">Jugar otra noche</button>
+        <ul class="clues" id="summary-clues" aria-label="Pistas que viste esta noche"></ul>
+        <div class="summary-actions">
+          <button class="btn btn--reject" id="btn-share">📤 Compartir</button>
+          <button class="btn btn--open" data-action="start">Otra noche</button>
+        </div>
+        <p class="muted" id="share-status" aria-live="polite"></p>
       </section>
 
       <div class="flash" id="flash"></div>

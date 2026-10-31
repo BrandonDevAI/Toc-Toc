@@ -94,7 +94,7 @@ export function createVisitorRenderer(canvas) {
     ctx.globalAlpha = alpha;
     ctx.translate(W / 2 + dx, FEET_Y);
     ctx.scale(scale, scale);
-    if (has('sombra_rara')) drawHornedShadow(ctx);
+    if (has('sombra_rara') || has('invisible')) drawHornedShadow(ctx);
     else if (!has('sin_sombra')) ellipse(ctx, 0, 2, 62, 11, 'rgba(0, 0, 0, 0.5)');
     ctx.translate(0, dy / scale - lift);
     drawVisitor(ctx, visitor, style);
@@ -321,6 +321,7 @@ const COSTUME_DRAWERS = {
   momia: drawMummy,
   gato: drawCat,
   espantapajaros: drawScarecrow,
+  invisible: drawInvisible,
 };
 
 function drawVisitor(ctx, v, s) {
@@ -333,8 +334,47 @@ function drawVisitor(ctx, v, s) {
 
   if (v.props.includes('bolsa_calabaza')) {
     if (v.costume === 'fantasma') drawBag(ctx, 66, -52);
+    else if (v.costume === 'invisible') drawBag(ctx, 30, -96 + Math.sin(s.time * 2) * 6);
     else drawBag(ctx, 44, -68);
   }
+}
+
+// Medianoche: no se ve a nadie. Al revelarse aparece la criatura de sombra.
+function drawInvisible(ctx, v, s) {
+  if (!s.glow) return;
+  ctx.fillStyle = '#050307';
+  ctx.beginPath();
+  ctx.moveTo(-52, 0);
+  ctx.quadraticCurveTo(-64, -150, -36, -232);
+  ctx.quadraticCurveTo(0, -268, 36, -232);
+  ctx.quadraticCurveTo(64, -150, 52, 0);
+  ctx.closePath();
+  ctx.fill();
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(side * 22, -244);
+    ctx.quadraticCurveTo(side * 62, -282, side * 58, -322);
+    ctx.quadraticCurveTo(side * 44, -284, side * 8, -256);
+    ctx.fill();
+    // Brazos largos con garras
+    ctx.strokeStyle = '#050307';
+    ctx.lineWidth = 12;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(side * 40, -180);
+    ctx.quadraticCurveTo(side * 84, -110, side * 74, -30);
+    ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (const dx of [-8, 0, 8]) {
+      ctx.moveTo(side * 74, -30);
+      ctx.lineTo(side * (74 + dx), -12);
+    }
+    ctx.stroke();
+  }
+  glowDot(ctx, -15, -214, 6);
+  glowDot(ctx, 15, -214, 6);
+  drawFaceMarks(ctx, new Set(['sonrisa_ancha']), -190);
 }
 
 // Pistas y señuelos que van en la cara. `mouthY` es la altura de la boca.

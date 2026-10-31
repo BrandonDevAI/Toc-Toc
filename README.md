@@ -25,6 +25,17 @@ lentes rojos de juguete o colmillos de plástico. Mira bien antes de cerrar la p
 
 Disfraces: fantasma, bruja, calabaza, vampiro, esqueleto, momia, gato y espantapájaros.
 
+### 🕛 Medianoche
+
+Si llegas a las 12 AM, suenan las campanadas y tocan una última vez... pero en el porche
+no hay nadie. Tu decisión define el final:
+
+- 🌕 **Sobreviviste a la medianoche:** +1000 puntos.
+- 🩸 **Lo dejaste entrar:** el peor final.
+- 💀 **Se apagaron tus velas:** si abriste a demasiados monstruos antes.
+
+Al terminar verás las pistas que encontraste esta noche (✓ o ✗) y podrás compartir tu puntaje.
+
 ## Correrlo en local
 
 El juego usa módulos de JavaScript, así que necesita un servidor local (no abre con doble clic):
@@ -53,4 +64,9 @@ src/
 - [x] Fase 1: núcleo jugable
 - [x] Fase 2: efecto mirilla, niebla y sonidos
 - [x] Fase 3: más disfraces y anomalías
-- [ ] Fase 4: pulido, final especial y compartir puntaje
+- [x] Fase 4: pulido, final especial y compartir puntaje
+
+## Publicarlo con GitHub Pages
+
+En el repositorio de GitHub: **Settings → Pages → Branch: `main` / `(root)` → Save**.
+En un par de minutos queda en `https://<tu-usuario>.github.io/<nombre-del-repo>/`.

@@ -27,9 +27,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* El ancho también depende del alto: así todo el juego cabe en la pantalla del celular. */
 .game {
-  width: min(420px, 100% - 32px);
-  padding: 16px 0;
+  width: max(260px, min(420px, 100% - 32px, (100dvh - 250px) * 0.818));
+  padding: max(16px, env(safe-area-inset-top)) 0 max(16px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -142,8 +143,13 @@ body {
   padding: 24px;
   text-align: center;
   background: rgba(8, 4, 16, 0.88);
+  overflow-y: auto;
 }
 .overlay[hidden] { display: none; }
+/* Centrado que no recorta arriba cuando el contenido no cabe y hay que desplazar. */
+.overlay:not(.overlay--clear) { justify-content: flex-start; }
+.overlay:not(.overlay--clear) > :first-child { margin-top: auto; }
+.overlay:not(.overlay--clear) > :last-child { margin-bottom: auto; }
 .overlay--clear { background: transparent; pointer-events: none; }
 .overlay--bottom { justify-content: flex-end; }
 
@@ -187,8 +193,29 @@ body {
 .result[data-tone='bad'] .result__points { color: var(--bad); }
 .result__points:empty { display: none; }
 
-.summary-title { margin: 0; font-size: 1.5rem; }
-.big-score { margin: 0; font-family: var(--font-title); font-size: 4.5rem; color: var(--orange); line-height: 1; }
+.summary-title { margin: 0; font-size: clamp(1.1rem, 5vw, 1.4rem); }
+#screen-summary { gap: 8px; padding: 18px 16px; }
+.summary-line { margin: 0; color: var(--muted); font-style: italic; }
+.clues {
+  list-style: none;
+  margin: 2px 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.chip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid;
+}
+.chip--ok { color: var(--good); border-color: rgba(74, 222, 128, 0.45); background: rgba(74, 222, 128, 0.08); }
+.chip--miss { color: var(--bad); border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.08); }
+.summary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 300px; }
+.big-score { margin: 0; font-family: var(--font-title); font-size: clamp(3rem, 15vw, 4.5rem); color: var(--orange); line-height: 1; }
 .record { margin: 0; font-weight: 800; color: var(--good); }
 
 .flash { position: absolute; inset: 0; background: #ff1a2e; opacity: 0; pointer-events: none; }
@@ -209,6 +236,7 @@ body {
   font-size: 1.05rem;
   color: var(--text);
   cursor: pointer;
+  touch-action: manipulation;
   transition: transform 0.1s, opacity 0.2s, filter 0.2s;
 }
 .btn:active:not(:disabled) { transform: scale(0.96); }

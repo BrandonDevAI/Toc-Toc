@@ -19,6 +19,15 @@ export const THOUGHTS = {
     'La calle está demasiado callada.',
     'Nadie más está abriendo su puerta.',
   ],
+  midnightKnock: [
+    'Medianoche... ¿quién toca ahora?',
+    'Ese golpe no sonó como los demás.',
+  ],
+  midnight: [
+    'No hay nadie...',
+    '¿Y esa sombra?',
+    'La bolsa está... flotando.',
+  ],
   hurry: [
     'Decide ya...',
     'Va a tocar otra vez...',

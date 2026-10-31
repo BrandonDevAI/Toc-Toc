@@ -6,6 +6,7 @@ const BASE_POINTS = 100;
 const SPEED_BONUS = 50;
 const SAD_KID_PENALTY = 50;
 const STREAK_FOR_BONUS = 3;
+const MIDNIGHT_BONUS = 1000;
 
 export function createRun() {
   return {
@@ -18,6 +19,10 @@ export function createRun() {
     visitorInHour: 0,
     correct: 0,
     wrong: 0,
+    // Pistas y señuelos que viste esta noche: id -> si siempre acertaste con ellos.
+    seen: {},
+    // Cómo terminó la medianoche: null si no se llegó, o el `kind` del resultado.
+    midnight: null,
   };
 }
 
@@ -47,9 +52,27 @@ export function resolveDecision(run, visitor, decision, timeLeft, timer) {
   }
   run.score += points;
 
+  const clue = visitor.anomalies[0] ?? visitor.decoys[0];
+  if (clue) run.seen[clue] = (run.seen[clue] ?? true) && correct;
+
   const kind = opened
     ? visitor.isMonster ? 'attacked' : 'happyKid'
     : visitor.isMonster ? 'avoided' : 'sadKid';
 
   return { kind, correct, points, reveal, decoyReveal, timeout: decision === 'timeout' };
+}
+
+// La medianoche define el final; no abrir da un bono grande.
+export function resolveMidnight(run, outcome) {
+  run.midnight = outcome.kind;
+  if (outcome.correct) {
+    run.score += MIDNIGHT_BONUS;
+    outcome.points += MIDNIGHT_BONUS;
+  }
+}
+
+// 'midnight' (sobreviviste), 'letIn' (abriste a medianoche) o 'dead' (sin velas).
+export function endingOf(run) {
+  if (run.midnight === 'attacked') return 'letIn';
+  return run.lives <= 0 ? 'dead' : 'midnight';
 }

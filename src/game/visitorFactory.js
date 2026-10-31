@@ -40,3 +40,18 @@ export function createVisitor(id, level, rng = Math.random) {
     dialogue: pick(DIALOGUES, rng),
   };
 }
+
+// Medianoche: no hay nadie en el porche. Solo una bolsa que flota y una sombra con cuernos.
+export function createMidnightVisitor(id) {
+  return {
+    id,
+    isMonster: true,
+    costume: 'invisible',
+    palette: { skin: '#000', cloth: '#000', pants: '#000' },
+    height: 1,
+    props: ['bolsa_calabaza'],
+    anomalies: ['invisible'],
+    decoys: [],
+    dialogue: 'Dulce... o truco...',
+  };
+}

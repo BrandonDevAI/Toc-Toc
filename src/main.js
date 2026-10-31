@@ -2,8 +2,8 @@ import { createEventBus } from './core/eventBus.js';
 import { createStateMachine } from './core/stateMachine.js';
 import { createGameLoop } from './core/gameLoop.js';
 import { NIGHT } from './game/difficulty.js';
-import { createVisitor } from './game/visitorFactory.js';
-import { createRun, resolveDecision } from './game/rules.js';
+import { createVisitor, createMidnightVisitor } from './game/visitorFactory.js';
+import { createRun, resolveDecision, resolveMidnight, endingOf } from './game/rules.js';
 import { THOUGHTS } from './data/thoughts.js';
 import { createVisitorRenderer } from './render/visitorRenderer.js';
 import { playEffect } from './render/effects.js';
@@ -20,7 +20,13 @@ const HEARTBEAT_EVERY = 0.75;
 const BREATH_CALM = 2.3;
 const BREATH_NERVOUS = 1.1;
 const LATE_HOUR = 3;
+const MIDNIGHT_BELLS = 6;
 const BEST_KEY = 'toctoc:best';
+const SHARE_TEXT = {
+  midnight: (s) => `🚪 Sobreviví a la medianoche en Toc Toc con ${s} puntos 🌕🎃 ¿Te atreves a mirar por la mirilla?`,
+  letIn: (s) => `🚪 Hice ${s} puntos en Toc Toc... pero a medianoche abrí la puerta 🩸 ¿Tú le abrirías?`,
+  dead: (s) => `🚪 Hice ${s} puntos en Toc Toc antes de que se apagaran mis velas 🕯️ ¿Llegas a medianoche?`,
+};
 
 const RESULT_SOUND = {
   happyKid: 'candy',
@@ -68,23 +74,25 @@ const sm = createStateMachine({
       renderer.setVisitor(null);
       renderer.setAtmosphere(level());
       sound.setIntensity(run.hourIndex / (NIGHT.length - 1));
+      if (level().midnight) sound.bells(MIDNIGHT_BELLS);
       hud.clearThought();
       screens.hour(level());
       syncHud();
     },
     update(dt, elapsed) {
-      if (elapsed > HOUR_INTRO_TIME) sm.change('knock');
+      if (elapsed > (level().introTime ?? HOUR_INTRO_TIME)) sm.change('knock');
     },
   },
   knock: {
     enter() {
-      visitor = createVisitor(++visitorCount, level());
+      const midnight = level().midnight;
+      visitor = midnight ? createMidnightVisitor(++visitorCount) : createVisitor(++visitorCount, level());
       renderer.setVisitor(null);
       renderer.knock();
       screens.knock();
       playEffect(stage, 'is-knocking');
       sound.knock();
-      hud.think(pick(THOUGHTS.knock));
+      hud.think(pick(midnight ? THOUGHTS.midnightKnock : THOUGHTS.knock));
     },
     update(dt, elapsed) {
       if (elapsed > KNOCK_TIME) sm.change('peek');
@@ -99,7 +107,9 @@ const sm = createStateMachine({
       nextBreath = 0.3;
       hurried = false;
       hud.say(visitor.dialogue);
-      const pool = run.hourIndex >= LATE_HOUR ? [...THOUGHTS.peek, ...THOUGHTS.late] : THOUGHTS.peek;
+      const pool = level().midnight ? THOUGHTS.midnight
+        : run.hourIndex >= LATE_HOUR ? [...THOUGHTS.peek, ...THOUGHTS.late]
+          : THOUGHTS.peek;
       hud.think(pick(pool));
       controls.enable(run.candy > 0);
       sound.tension(level().timer);
@@ -155,28 +165,44 @@ const sm = createStateMachine({
     },
   },
   summary: {
-    enter({ won }) {
+    enter() {
       const previous = loadBest();
       const isRecord = run.score > previous;
       if (isRecord) saveBest(run.score);
-      screens.summary({ run, won, best: Math.max(previous, run.score), isRecord });
+      screens.summary({ run, ending: endingOf(run), best: Math.max(previous, run.score), isRecord });
     },
   },
 }, bus);
 
 function decide(decision) {
   const outcome = resolveDecision(run, visitor, decision, timeLeft, level().timer);
+  if (level().midnight) resolveMidnight(run, outcome);
   sm.change('result', outcome);
 }
 
 function advance() {
-  if (run.lives <= 0) return sm.change('summary', { won: false });
+  if (run.lives <= 0) return sm.change('summary');
   run.visitorInHour++;
   if (run.visitorInHour < level().visitors) return sm.change('knock');
   run.visitorInHour = 0;
   run.hourIndex++;
-  if (run.hourIndex >= NIGHT.length) return sm.change('summary', { won: true });
+  if (run.hourIndex >= NIGHT.length) return sm.change('summary');
   sm.change('hourIntro');
+}
+
+async function share() {
+  const text = SHARE_TEXT[endingOf(run)](run.score);
+  const url = location.href.split('#')[0];
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'Toc Toc', text, url });
+      return;
+    }
+    await navigator.clipboard.writeText(`${text} ${url}`);
+    screens.shareStatus('¡Copiado! Pégalo donde quieras.');
+  } catch (err) {
+    if (err?.name !== 'AbortError') screens.shareStatus('No se pudo compartir desde este navegador.');
+  }
 }
 
 function startRun() {
@@ -216,6 +242,11 @@ bus.on('intent', (intent) => {
   if (sm.name === 'peek') renderer.setIntent(intent);
 });
 screens.onStart(startRun);
+screens.onShare(share);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) sound.suspend();
+  else sound.resume();
+});
 muteBtn.addEventListener('click', () => {
   sound.toggleMute();
   sound.unlock();
