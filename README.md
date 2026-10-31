@@ -9,6 +9,7 @@ Es noche de Halloween y tocan a tu puerta. Miras por la mirilla y tienes unos se
 |---|---|---|
 | 🚪 No abrir | ← o A | Deslizar a la izquierda |
 | 🍬 Dar dulces | → o D | Deslizar a la derecha |
+| 🔇 Silenciar | M | Botón 🔊 |
 
 Todo monstruo tiene algo raro: ojos que brillan, una cola, no tiene sombra...
 La noche va de 8 PM a 11 PM y cada hora es más difícil.
@@ -31,13 +32,14 @@ src/
 ├── core/        # Máquina de estados, loop y bus de eventos
 ├── game/        # Reglas, curva de dificultad y generador de visitantes
 ├── data/        # Disfraces y anomalías (pistas de monstruo)
-├── render/      # Dibujo procedural en canvas
+├── render/      # Dibujo procedural en canvas, mirilla y niebla
+├── audio/       # Sonidos sintetizados con Web Audio (sin archivos)
 └── ui/          # HUD, pantallas y controles
 ```
 
 ## Hoja de ruta
 
 - [x] Fase 1: núcleo jugable
-- [ ] Fase 2: efecto mirilla, niebla y sonidos
+- [x] Fase 2: efecto mirilla, niebla y sonidos
 - [ ] Fase 3: más disfraces y anomalías
 - [ ] Fase 4: pulido, final especial y compartir puntaje

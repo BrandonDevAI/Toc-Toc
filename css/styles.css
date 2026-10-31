@@ -206,7 +206,24 @@ kbd {
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.25);
 }
-.hint { margin: 0; text-align: center; font-size: 0.75rem; color: var(--muted); }
+.hint {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.icon-btn:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
 
 @media (hover: none) {
   kbd { display: none; }

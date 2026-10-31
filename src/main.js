@@ -9,11 +9,21 @@ import { playEffect } from './render/effects.js';
 import { createHud } from './ui/hud.js';
 import { createScreens } from './ui/screens.js';
 import { createControls } from './ui/controls.js';
+import { createSound } from './audio/sound.js';
 
 const HOUR_INTRO_TIME = 2;
 const KNOCK_TIME = 1.1;
 const RESULT_TIME = 1.9;
+const HEARTBEAT_FROM = 0.4; // fracción del tiempo restante en la que empieza el latido
+const HEARTBEAT_EVERY = 0.75;
 const BEST_KEY = 'toctoc:best';
+
+const RESULT_SOUND = {
+  happyKid: 'candy',
+  avoided: 'avoided',
+  sadKid: 'sad',
+  attacked: 'scare',
+};
 
 const bus = createEventBus();
 const stage = document.getElementById('stage');
@@ -22,11 +32,14 @@ const renderer = createVisitorRenderer(document.getElementById('scene'));
 const hud = createHud(bus);
 const screens = createScreens();
 const controls = createControls(stage, bus);
+const sound = createSound();
+const muteBtn = document.getElementById('btn-mute');
 
 let run = createRun();
 let visitor = null;
 let visitorCount = 0;
 let timeLeft = 0;
+let nextHeartbeat = 0;
 
 const level = () => NIGHT[Math.min(run.hourIndex, NIGHT.length - 1)];
 const syncHud = () => bus.emit('run:changed', { run, level: level() });
@@ -41,6 +54,7 @@ const sm = createStateMachine({
   hourIntro: {
     enter() {
       renderer.setVisitor(null);
+      renderer.setAtmosphere(level());
       screens.hour(level());
       syncHud();
     },
@@ -54,6 +68,7 @@ const sm = createStateMachine({
       renderer.setVisitor(null);
       screens.knock();
       playEffect(stage, 'is-knocking');
+      sound.knock();
     },
     update(dt, elapsed) {
       if (elapsed > KNOCK_TIME) sm.change('peek');
@@ -64,12 +79,17 @@ const sm = createStateMachine({
       screens.hideAll();
       renderer.setVisitor(visitor);
       timeLeft = level().timer;
+      nextHeartbeat = level().timer * HEARTBEAT_FROM;
       hud.say(visitor.dialogue);
       controls.enable(run.candy > 0);
     },
     update(dt) {
       timeLeft -= dt;
       hud.setTimer(timeLeft / level().timer);
+      if (timeLeft <= nextHeartbeat && timeLeft > 0) {
+        sound.heartbeat();
+        nextHeartbeat -= HEARTBEAT_EVERY;
+      }
       if (timeLeft <= 0) decide('timeout');
     },
     exit() {
@@ -81,6 +101,7 @@ const sm = createStateMachine({
     enter(outcome) {
       screens.result(outcome);
       renderer.react(outcome.kind);
+      sound[RESULT_SOUND[outcome.kind]]();
       syncHud();
       if (outcome.kind === 'attacked') {
         playEffect(stage, 'is-shaking');
@@ -120,6 +141,7 @@ function advance() {
 }
 
 function startRun() {
+  sound.unlock();
   run = createRun();
   visitorCount = 0;
   hud.setTimer(1);
@@ -146,11 +168,27 @@ function saveBest(score) {
 bus.on('decision', (decision) => {
   if (sm.name === 'peek') decide(decision);
 });
+function renderMute() {
+  muteBtn.textContent = sound.muted ? '🔇' : '🔊';
+  muteBtn.setAttribute('aria-label', sound.muted ? 'Activar sonido' : 'Silenciar');
+}
+
 screens.onStart(startRun);
+muteBtn.addEventListener('click', () => {
+  sound.toggleMute();
+  sound.unlock();
+  renderMute();
+});
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && (sm.name === 'menu' || sm.name === 'summary')) startRun();
+  if (e.key.toLowerCase() === 'm') {
+    sound.toggleMute();
+    renderMute();
+  }
 });
 
+renderMute();
+renderer.setAtmosphere(NIGHT[0]);
 syncHud();
 sm.change('menu');
 createGameLoop(

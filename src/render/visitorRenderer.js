@@ -1,18 +1,32 @@
+import { createPeephole } from './peephole.js';
+import { createFog } from './fog.js';
+
 // Dibuja el porche y al visitante por capas. Todo es procedural: no hay imágenes.
+// La escena se pinta en un canvas aparte y la mirilla la compone en el canvas visible.
 // El visitante se dibuja en un espacio local con los pies en y=0 y ~230 unidades de alto.
 const W = 360;
 const H = 440;
-const HORIZON = 290;
-const FEET_Y = 392;
+const HORIZON = 262;
+const FEET_Y = 352;
 const TAU = Math.PI * 2;
 const APPEAR_TIME = 0.35;
 
 export function createVisitorRenderer(canvas) {
-  const ctx = canvas.getContext('2d');
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const view = canvas.getContext('2d');
   canvas.width = W * dpr;
   canvas.height = H * dpr;
+  view.scale(dpr, dpr);
+
+  const scene = document.createElement('canvas');
+  scene.width = W * dpr;
+  scene.height = H * dpr;
+  const ctx = scene.getContext('2d');
   ctx.scale(dpr, dpr);
+
+  const peephole = createPeephole(W, H, dpr);
+  const fog = createFog(W, H, HORIZON);
+  let flicker = 0;
 
   const stars = Array.from({ length: 45 }, () => ({
     x: Math.random() * W,
@@ -79,18 +93,27 @@ export function createVisitorRenderer(canvas) {
       reaction = kind;
       reactedAt = time;
     },
+    // Ambiente de la hora: densidad de niebla y cuánto titila la luz del porche (0 a 1).
+    setAtmosphere(level) {
+      fog.setDensity(level.fog);
+      flicker = level.flicker;
+    },
     update(dt) {
       time += dt;
+      fog.update(dt);
     },
     render() {
       ctx.clearRect(0, 0, W, H);
-      drawBackdrop(ctx, stars, time);
+      drawBackdrop(ctx, stars, time, flicker);
+      fog.draw(ctx);
       if (visitor) drawCurrentVisitor();
-      drawVignette(ctx);
+      fog.draw(ctx, { front: true });
+
+      peephole.draw(view, scene);
       if (reaction === 'attacked') {
         const t = time - reactedAt;
-        ctx.fillStyle = `rgba(160, 0, 20, ${Math.max(0, 0.45 - t * 0.3)})`;
-        ctx.fillRect(0, 0, W, H);
+        view.fillStyle = `rgba(160, 0, 20, ${Math.max(0, 0.45 - t * 0.3)})`;
+        view.fillRect(0, 0, W, H);
       }
     },
   };
@@ -98,7 +121,7 @@ export function createVisitorRenderer(canvas) {
 
 // ---------- Escenario ----------
 
-function drawBackdrop(ctx, stars, time) {
+function drawBackdrop(ctx, stars, time, flicker) {
   const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
   sky.addColorStop(0, '#07040f');
   sky.addColorStop(1, '#2b1446');
@@ -115,18 +138,18 @@ function drawBackdrop(ctx, stars, time) {
   ctx.globalAlpha = 1;
 
   // Luna creciente
-  const halo = ctx.createRadialGradient(288, 72, 10, 288, 72, 70);
+  const halo = ctx.createRadialGradient(250, 100, 10, 250, 100, 70);
   halo.addColorStop(0, 'rgba(246, 231, 176, 0.35)');
   halo.addColorStop(1, 'rgba(246, 231, 176, 0)');
   ctx.fillStyle = halo;
-  ctx.fillRect(210, 0, 150, 150);
+  ctx.fillRect(175, 25, 150, 150);
   ctx.save();
   ctx.beginPath();
-  ctx.arc(288, 72, 24, 0, TAU);
+  ctx.arc(250, 100, 24, 0, TAU);
   ctx.clip();
   ctx.beginPath();
-  ctx.rect(260, 44, 56, 56);
-  ctx.arc(299, 65, 21, 0, TAU);
+  ctx.rect(222, 72, 56, 56);
+  ctx.arc(261, 93, 21, 0, TAU);
   ctx.fillStyle = '#f6e7b0';
   ctx.fill('evenodd');
   ctx.restore();
@@ -164,9 +187,10 @@ function drawBackdrop(ctx, stars, time) {
     ctx.stroke();
   }
 
-  // Luz del porche
+  // Luz del porche: a veces baja de golpe, más seguido mientras avanza la noche.
+  const dip = Math.sin(time * 23) * Math.sin(time * 7.3) > 1 - flicker * 0.4 ? 0.65 : 0;
   const glow = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, 400);
-  glow.addColorStop(0, 'rgba(255, 190, 110, 0.32)');
+  glow.addColorStop(0, `rgba(255, 190, 110, ${0.32 * (1 - dip)})`);
   glow.addColorStop(1, 'rgba(255, 190, 110, 0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
@@ -175,14 +199,6 @@ function drawBackdrop(ctx, stars, time) {
   ctx.fillStyle = '#140b08';
   ctx.fillRect(0, 0, 16, H);
   ctx.fillRect(W - 16, 0, 16, H);
-}
-
-function drawVignette(ctx) {
-  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.75);
-  v.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  v.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
-  ctx.fillStyle = v;
-  ctx.fillRect(0, 0, W, H);
 }
 
 // ---------- Visitante ----------
