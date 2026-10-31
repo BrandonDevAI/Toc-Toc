@@ -30,7 +30,7 @@ export function createPeephole(lens, source, dpr) {
       }
 
       // Oscurecer el borde del lente
-      const inner = ctx.createRadialGradient(cx, cy, R * 0.55, cx, cy, R);
+      const inner = ctx.createRadialGradient(cx, cy, R * 0.7, cx, cy, R);
       inner.addColorStop(0, 'rgba(0, 0, 0, 0)');
       inner.addColorStop(1, 'rgba(0, 0, 0, 0.85)');
       ctx.fillStyle = inner;

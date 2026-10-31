@@ -13,7 +13,9 @@ const HORIZON = 262;
 const FEET_Y = 352;
 const TAU = Math.PI * 2;
 const APPEAR_TIME = 0.35;
-const LENS_SOURCE = { x: 180, y: 228, radius: 150 }; // parte del porche que cabe en la mirilla
+// Parte del porche que cabe en la mirilla: centrada en el cuerpo para que se vean
+// la cara y los pies con su sombra (varias pistas están en el piso).
+const LENS_SOURCE = { x: 180, y: 248, radius: 140 };
 const VIEW_OVERSCAN = 1.03; // margen para que el balanceo no deje bordes vacíos
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -77,21 +79,24 @@ export function createVisitorRenderer(canvas) {
       }
     }
 
+    const has = (id) => visitor.anomalies.includes(id);
     const style = {
       time,
-      blink: (time + visitor.id * 0.37) % 2.6 < 0.12,
+      // Los niños parpadean seguido; el que nunca lo hace es sospechoso.
+      blink: !has('no_parpadea') && (time + visitor.id * 0.37) % 1.8 < 0.15,
       // Al resolver, todo monstruo muestra su verdadera cara.
-      glow: visitor.anomalies.includes('ojos_rojos') || (reaction && visitor.isMonster),
+      glow: has('ojos_rojos') || (reaction && visitor.isMonster),
+      blackEyes: has('ojos_negros'),
     };
+    const lift = has('flota') ? 14 + Math.sin(time * 1.3) * 3 : 0;
 
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(W / 2 + dx, FEET_Y);
     ctx.scale(scale, scale);
-    if (!visitor.anomalies.includes('sin_sombra')) {
-      ellipse(ctx, 0, 2, 62, 11, 'rgba(0, 0, 0, 0.5)');
-    }
-    ctx.translate(0, dy / scale);
+    if (has('sombra_rara')) drawHornedShadow(ctx);
+    else if (!has('sin_sombra')) ellipse(ctx, 0, 2, 62, 11, 'rgba(0, 0, 0, 0.5)');
+    ctx.translate(0, dy / scale - lift);
     drawVisitor(ctx, visitor, style);
     ctx.restore();
   }
@@ -280,6 +285,17 @@ function drawBackdrop(ctx, stars, time, flicker) {
     ctx.stroke();
   }
 
+  // Círculo de luz en el piso donde se para el visitante: ahí se lee su sombra.
+  ctx.save();
+  ctx.translate(W / 2, FEET_Y);
+  ctx.scale(1, 0.22);
+  const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, 130);
+  pool.addColorStop(0, 'rgba(255, 200, 130, 0.45)');
+  pool.addColorStop(1, 'rgba(255, 200, 130, 0)');
+  ctx.fillStyle = pool;
+  ctx.fillRect(-130, -130, 260, 260);
+  ctx.restore();
+
   // Luz del porche: a veces baja de golpe, más seguido mientras avanza la noche.
   const dip = Math.sin(time * 23) * Math.sin(time * 7.3) > 1 - flicker * 0.4 ? 0.65 : 0;
   const glow = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, 400);
@@ -296,20 +312,114 @@ function drawBackdrop(ctx, stars, time, flicker) {
 
 // ---------- Visitante ----------
 
-function drawVisitor(ctx, v, s) {
-  if (v.anomalies.includes('cola')) drawTail(ctx, s.time);
+const COSTUME_DRAWERS = {
+  fantasma: drawGhost,
+  bruja: drawWitch,
+  calabaza: drawPumpkin,
+  vampiro: drawVampire,
+  esqueleto: drawSkeleton,
+  momia: drawMummy,
+  gato: drawCat,
+  espantapajaros: drawScarecrow,
+};
 
-  switch (v.costume) {
-    case 'fantasma': drawGhost(ctx, v, s); break;
-    case 'bruja': drawWitch(ctx, v, s); break;
-    case 'calabaza': drawPumpkin(ctx, v, s); break;
-    case 'vampiro': drawVampire(ctx, v, s); break;
-  }
+function drawVisitor(ctx, v, s) {
+  const marks = new Set([...v.anomalies, ...v.decoys]);
+  if (marks.has('cola')) drawTail(ctx, s.time);
+  if (marks.has('cola_falsa')) drawFakeTail(ctx);
+
+  COSTUME_DRAWERS[v.costume](ctx, v, s);
+  drawFaceMarks(ctx, marks, v.costume === 'fantasma' ? -160 : -166);
 
   if (v.props.includes('bolsa_calabaza')) {
     if (v.costume === 'fantasma') drawBag(ctx, 66, -52);
     else drawBag(ctx, 44, -68);
   }
+}
+
+// Pistas y señuelos que van en la cara. `mouthY` es la altura de la boca.
+function drawFaceMarks(ctx, marks, mouthY) {
+  if (marks.has('sonrisa_ancha')) {
+    const m = mouthY;
+    ctx.fillStyle = '#2a0508';
+    ctx.beginPath();
+    ctx.moveTo(-25, m - 6);
+    ctx.quadraticCurveTo(0, m + 16, 25, m - 6);
+    ctx.quadraticCurveTo(0, m + 4, -25, m - 6);
+    ctx.fill();
+    ctx.fillStyle = '#f2ead8';
+    for (let x = -18; x <= 18; x += 6) {
+      const t = (x + 25) / 50;
+      const y = m - 6 + 20 * t * (1 - t);
+      polygon(ctx, [[x - 2.2, y - 0.5], [x + 2.2, y - 0.5], [x, y + 4]]);
+    }
+  }
+  if (marks.has('colmillos')) {
+    for (const x of [-6, 6]) {
+      ctx.fillStyle = '#f7f3ea';
+      polygon(ctx, [[x - 3.4, mouthY - 1], [x + 3.4, mouthY - 1], [x - Math.sign(x), mouthY + 17]]);
+      ellipse(ctx, x - Math.sign(x), mouthY + 18.5, 1.8, 2.6, '#9b0c18');
+    }
+  }
+  if (marks.has('colmillos_plastico')) {
+    ctx.fillStyle = '#f28fb0';
+    roundRect(ctx, -11, mouthY - 4, 22, 5, 2);
+    ctx.fillStyle = '#fff';
+    roundRect(ctx, -8, mouthY, 4, 6, 1.5);
+    roundRect(ctx, 4, mouthY, 4, 6, 1.5);
+  }
+  if (marks.has('lentes_rojos')) {
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 2.5;
+    for (const x of [-11, 11]) {
+      ctx.fillStyle = 'rgba(230, 20, 30, 0.45)';
+      ctx.beginPath();
+      ctx.roundRect(x - 9, -192, 18, 15, 4);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(-2, -186);
+    ctx.lineTo(2, -186);
+    ctx.moveTo(-20, -188);
+    ctx.lineTo(-31, -190);
+    ctx.moveTo(20, -188);
+    ctx.lineTo(31, -190);
+    ctx.stroke();
+  }
+}
+
+// Sombra deforme: más grande y con cuernos que asoman a los lados.
+function drawHornedShadow(ctx) {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 74, 13, 0, 0, TAU);
+  ctx.fill();
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(side * 40, -6);
+    ctx.quadraticCurveTo(side * 70, -14, side * 84, -42);
+    ctx.quadraticCurveTo(side * 64, -18, side * 52, -2);
+    ctx.fill();
+  }
+}
+
+// Cola de disfraz: de peluche, rayada, con moño y quieta.
+function drawFakeTail(ctx) {
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 11;
+  ctx.beginPath();
+  ctx.moveTo(18, -72);
+  ctx.quadraticCurveTo(62, -70, 70, -30);
+  ctx.strokeStyle = '#7d7d88';
+  ctx.stroke();
+  ctx.setLineDash([5, 7]);
+  ctx.strokeStyle = '#4a4a55';
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#e63946';
+  polygon(ctx, [[18, -72], [8, -81], [8, -63]]);
+  polygon(ctx, [[18, -72], [28, -81], [28, -63]]);
 }
 
 function drawGhost(ctx, v, s) {
@@ -472,6 +582,228 @@ function drawVampire(ctx, v, s) {
   polygon(ctx, [[3, -166], [7, -166], [5, -160]]);
 }
 
+function drawSkeleton(ctx, v, s) {
+  const BLACK = '#151318';
+  const BONE = '#ece8dc';
+  drawLegs(ctx, BLACK);
+  ctx.fillStyle = BONE;
+  for (const x of [-20, 12]) {
+    roundRect(ctx, x, -64, 8, 24, 4);
+    roundRect(ctx, x, -36, 8, 24, 4);
+  }
+  drawArms(ctx, BLACK, v.palette.skin);
+  ctx.strokeStyle = BONE;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(-26, -136);
+  ctx.lineTo(-37, -100);
+  ctx.moveTo(26, -136);
+  ctx.lineTo(37, -100);
+  ctx.stroke();
+
+  ctx.fillStyle = BLACK;
+  roundRect(ctx, -28, -152, 56, 94, 12);
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -146);
+  ctx.lineTo(0, -82);
+  ctx.stroke();
+  for (let i = 0; i < 4; i++) {
+    const y = -140 + i * 12;
+    const w = 18 - i * 2;
+    ctx.beginPath();
+    ctx.moveTo(-w, y + 4);
+    ctx.quadraticCurveTo(0, y - 6, w, y + 4);
+    ctx.stroke();
+  }
+  ctx.fillStyle = BONE;
+  polygon(ctx, [[-16, -76], [16, -76], [8, -62], [-8, -62]]);
+
+  ellipse(ctx, 0, -180, 37, 37, BLACK); // capucha
+  drawHead(ctx, '#e9e6df', s);
+  // Maquillaje de calavera
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 3.5;
+  for (const x of [-11, 11]) {
+    ctx.beginPath();
+    ctx.ellipse(x, -184, 9.5, 10.5, 0, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#1a1a1a';
+  polygon(ctx, [[-3, -172], [3, -172], [0, -177]]);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (const x of [-6, -2, 2, 6]) {
+    ctx.moveTo(x, -168);
+    ctx.lineTo(x, -161);
+  }
+  ctx.stroke();
+}
+
+function drawMummy(ctx, v, s) {
+  const wrap = v.palette.cloth;
+  drawLegs(ctx, wrap);
+  drawArms(ctx, wrap, wrap);
+  ctx.fillStyle = wrap;
+  roundRect(ctx, -28, -152, 56, 94, 12);
+  wrapLines(ctx, -28, -152, 56, 94);
+
+  // Venda suelta
+  ctx.strokeStyle = wrap;
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  ctx.moveTo(22, -90);
+  ctx.quadraticCurveTo(34, -70, 28, -48);
+  ctx.stroke();
+
+  drawHead(ctx, v.palette.skin, s);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, -182, 32.5, 0, TAU);
+  ctx.clip();
+  ctx.fillStyle = wrap;
+  ctx.fillRect(-40, -222, 80, 28);
+  ctx.fillRect(-40, -158, 80, 20);
+  wrapLines(ctx, -40, -222, 80, 28);
+  wrapLines(ctx, -40, -158, 80, 20);
+  ctx.translate(0, -176);
+  ctx.rotate(-0.25);
+  ctx.fillStyle = wrap;
+  ctx.fillRect(18, -3, 30, 7);
+  ctx.restore();
+}
+
+function wrapLines(ctx, x, y, w, h) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(90, 70, 40, 0.35)';
+  ctx.lineWidth = 1.5;
+  for (let i = -h; i < w; i += 9) {
+    ctx.beginPath();
+    ctx.moveTo(x + i, y + h);
+    ctx.lineTo(x + i + h * 0.6, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCat(ctx, v, s) {
+  const fur = v.palette.cloth;
+  // Cola de tela, caída y quieta
+  ctx.strokeStyle = fur;
+  ctx.lineWidth = 9;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-18, -70);
+  ctx.bezierCurveTo(-50, -60, -62, -30, -48, -6);
+  ctx.stroke();
+
+  drawLegs(ctx, fur);
+  drawArms(ctx, fur, v.palette.skin);
+  ctx.fillStyle = fur;
+  roundRect(ctx, -28, -152, 56, 94, 14);
+  ellipse(ctx, 0, -108, 16, 26, 'rgba(255, 255, 255, 0.25)');
+
+  ellipse(ctx, 0, -180, 38, 37, fur); // capucha
+  for (const side of [-1, 1]) {
+    ctx.fillStyle = fur;
+    polygon(ctx, [[side * 32, -200], [side * 34, -234], [side * 10, -212]]);
+    ctx.fillStyle = '#e88aa5';
+    polygon(ctx, [[side * 28, -205], [side * 30, -226], [side * 16, -213]]);
+  }
+  drawHead(ctx, v.palette.skin, s);
+
+  ctx.fillStyle = '#e88aa5';
+  polygon(ctx, [[-4, -177], [4, -177], [0, -172]]);
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    for (const dy of [-3, 3]) {
+      ctx.moveTo(side * 9, -174);
+      ctx.lineTo(side * 27, -175 + dy * 1.5);
+    }
+  }
+  ctx.stroke();
+}
+
+function drawScarecrow(ctx, v, s) {
+  const shirt = v.palette.cloth;
+  ctx.fillStyle = '#3b5b8c';
+  roundRect(ctx, -24, -70, 16, 64, 6);
+  roundRect(ctx, 8, -70, 16, 64, 6);
+  ctx.fillStyle = '#8c6d3a';
+  ctx.fillRect(10, -48, 11, 11);
+  ellipse(ctx, -17, -5, 14, 7, '#3a2a1a');
+  ellipse(ctx, 17, -5, 14, 7, '#3a2a1a');
+  strawTuft(ctx, -16, -12, 1);
+  strawTuft(ctx, 16, -12, 1);
+
+  drawArms(ctx, shirt, v.palette.skin);
+  strawTuft(ctx, -39, -96, 1);
+  strawTuft(ctx, 39, -96, 1);
+
+  ctx.fillStyle = shirt;
+  roundRect(ctx, -28, -152, 56, 94, 10);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(-28, -152, 56, 94);
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let x = -24; x < 28; x += 10) {
+    ctx.moveTo(x, -152);
+    ctx.lineTo(x, -58);
+  }
+  for (let y = -146; y < -58; y += 12) {
+    ctx.moveTo(-28, y);
+    ctx.lineTo(28, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = '#c9a24a';
+  ctx.fillRect(-29, -80, 58, 5);
+  strawTuft(ctx, 0, -150, -1);
+
+  drawHead(ctx, v.palette.skin, s);
+  // Sonrisa cosida pintada
+  ctx.strokeStyle = '#3a1a0a';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, -176, 15, 0.18 * Math.PI, 0.82 * Math.PI);
+  for (let a = 0.25; a <= 0.76; a += 0.1) {
+    const x = Math.cos(a * Math.PI) * 15;
+    const y = -176 + Math.sin(a * Math.PI) * 15;
+    ctx.moveTo(x - 1, y - 3);
+    ctx.lineTo(x + 1, y + 3);
+  }
+  ctx.stroke();
+
+  // Sombrero de paja
+  ellipse(ctx, 0, -205, 54, 10, '#d9b45a');
+  ctx.fillStyle = '#c9a24a';
+  roundRect(ctx, -25, -234, 50, 30, 8);
+  ctx.fillStyle = shirt;
+  ctx.fillRect(-25, -212, 50, 6);
+}
+
+// Mechón de paja; `dir` = 1 hacia abajo, -1 hacia arriba.
+function strawTuft(ctx, x, y, dir) {
+  ctx.strokeStyle = '#e2c25a';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = (i - 2.5) * 0.3;
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.sin(a) * 11, y + Math.cos(a) * 11 * dir);
+  }
+  ctx.stroke();
+}
+
 // ---------- Partes compartidas ----------
 
 function drawLegs(ctx, color) {
@@ -502,6 +834,9 @@ function drawHead(ctx, skin, s) {
     if (s.glow) {
       ellipse(ctx, x, -184, 6, 7, '#1a0b0b');
       glowDot(ctx, x, -183, 4);
+    } else if (s.blackEyes && !s.blink) {
+      ellipse(ctx, x, -184, 6.5, 7.5, '#050307');
+      ellipse(ctx, x + 1.5, -186, 1.2, 1.2, 'rgba(255, 255, 255, 0.45)');
     } else if (s.blink) {
       ctx.strokeStyle = '#2b1a12';
       ctx.lineWidth = 2;

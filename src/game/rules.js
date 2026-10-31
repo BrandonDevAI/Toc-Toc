@@ -1,4 +1,4 @@
-import { ANOMALIES } from '../data/anomalies.js';
+import { ANOMALIES, DECOYS } from '../data/anomalies.js';
 
 const START_LIVES = 3;
 const START_CANDY = 20;
@@ -30,6 +30,7 @@ export function resolveDecision(run, visitor, decision, timeLeft, timer) {
   const opened = decision === 'open';
   const correct = opened !== visitor.isMonster;
   const reveal = ANOMALIES.find((a) => a.id === visitor.anomalies[0])?.reveal ?? null;
+  const decoyReveal = DECOYS.find((d) => d.id === visitor.decoys[0])?.reveal ?? null;
   let points = 0;
 
   if (correct) {
@@ -50,5 +51,5 @@ export function resolveDecision(run, visitor, decision, timeLeft, timer) {
     ? visitor.isMonster ? 'attacked' : 'happyKid'
     : visitor.isMonster ? 'avoided' : 'sadKid';
 
-  return { kind, correct, points, reveal, timeout: decision === 'timeout' };
+  return { kind, correct, points, reveal, decoyReveal, timeout: decision === 'timeout' };
 }

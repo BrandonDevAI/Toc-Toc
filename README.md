@@ -11,8 +11,19 @@ Es noche de Halloween y tocan a tu puerta. Miras por la mirilla y tienes unos se
 | 🍬 Dar dulces | → o D | Deslizar a la derecha |
 | 🔇 Silenciar | M | Botón 🔊 |
 
-Todo monstruo tiene algo raro: ojos que brillan, una cola, no tiene sombra...
-La noche va de 8 PM a 11 PM y cada hora es más difícil.
+Todo monstruo tiene algo raro, y cada hora las pistas son más sutiles:
+
+| Hora | Pistas de monstruo |
+|---|---|
+| 8 PM | Ojos rojos, cola que se mueve, colmillos de verdad |
+| 9 PM | + Sin sombra, sombra con cuernos, ojos completamente negros |
+| 10 PM | + Sonrisa demasiado ancha, flota sobre el piso, nunca parpadea |
+| 11 PM | Solo las difíciles, con niebla y la luz fallando |
+
+Desde las 10 PM algunos niños traen **disfraces que engañan**: colas de peluche,
+lentes rojos de juguete o colmillos de plástico. Mira bien antes de cerrar la puerta.
+
+Disfraces: fantasma, bruja, calabaza, vampiro, esqueleto, momia, gato y espantapájaros.
 
 ## Correrlo en local
 
@@ -41,5 +52,5 @@ src/
 
 - [x] Fase 1: núcleo jugable
 - [x] Fase 2: efecto mirilla, niebla y sonidos
-- [ ] Fase 3: más disfraces y anomalías
+- [x] Fase 3: más disfraces y anomalías
 - [ ] Fase 4: pulido, final especial y compartir puntaje

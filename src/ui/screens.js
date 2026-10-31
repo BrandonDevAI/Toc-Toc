@@ -1,10 +1,18 @@
 const $ = (id) => document.getElementById(id);
 
 const RESULT_COPY = {
-  happyKid: { tone: 'good', title: '🍬 ¡Era un niño!', detail: () => 'Se fue feliz con sus dulces.' },
+  happyKid: {
+    tone: 'good',
+    title: '🍬 ¡Era un niño!',
+    detail: (o) => (o.decoyReveal ? `No te engañó: ${o.decoyReveal}.` : 'Se fue feliz con sus dulces.'),
+  },
   avoided: { tone: 'good', title: '😮‍💨 ¡Bien visto!', detail: (o) => `Era un monstruo: ${o.reveal}.` },
   attacked: { tone: 'bad', title: '💀 ¡Era un monstruo!', detail: (o) => `Se te pasó que ${o.reveal}.` },
-  sadKid: { tone: 'bad', title: '😢 Era solo un niño...', detail: () => 'Se fue sin dulces.' },
+  sadKid: {
+    tone: 'bad',
+    title: '😢 Era solo un niño...',
+    detail: (o) => (o.decoyReveal ? `Caíste: ${o.decoyReveal}.` : 'Se fue sin dulces.'),
+  },
 };
 
 export function createScreens() {
