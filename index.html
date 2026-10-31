@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Toc Toc</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="game">
+    <header class="hud">
+      <div class="hud__item"><span class="hud__label">Hora</span><span id="hud-hour" class="hud__value">8 PM</span></div>
+      <div class="hud__item"><span class="hud__label">Velas</span><span id="hud-lives" class="hud__value"></span></div>
+      <div class="hud__item"><span class="hud__label">Dulces</span><span class="hud__value">🍬 <span id="hud-candy">20</span></span></div>
+      <div class="hud__item"><span class="hud__label">Puntos</span><span id="hud-score" class="hud__value">0</span></div>
+    </header>
+
+    <div class="stage" id="stage">
+      <canvas id="scene" aria-label="Lo que ves por la mirilla"></canvas>
+      <div class="timer"><div class="timer__fill" id="timer-fill"></div></div>
+      <p class="bubble" id="bubble" hidden></p>
+      <div class="streak" id="streak" hidden>🔥 x2</div>
+
+      <section class="overlay" id="screen-menu">
+        <h1 class="title">Toc&nbsp;Toc</h1>
+        <p class="lead">Es noche de Halloween y tocan a tu puerta. ¿Niño disfrazado o monstruo de verdad?</p>
+        <ul class="rules">
+          <li>🍬 Dale dulces a los <b>niños</b>.</li>
+          <li>🚪 <b>No abras</b> a los monstruos.</li>
+          <li>👀 Todo monstruo tiene algo raro: mira los ojos, la sombra, lo que asoma...</li>
+        </ul>
+        <button class="btn btn--open btn--wide" data-action="start">Abrir la mirilla</button>
+        <p class="muted" id="menu-best"></p>
+      </section>
+
+      <section class="overlay overlay--clear" id="screen-hour" hidden>
+        <h2 class="hour" id="hour-title"></h2>
+        <p class="tip" id="hour-tip"></p>
+      </section>
+
+      <section class="overlay overlay--clear" id="screen-knock" hidden>
+        <p class="knock">Toc<br>toc</p>
+      </section>
+
+      <section class="overlay overlay--clear overlay--bottom" id="screen-result" hidden>
+        <div class="result" id="result-card">
+          <p class="result__title" id="result-title"></p>
+          <p class="result__detail" id="result-detail"></p>
+          <p class="result__points" id="result-points"></p>
+        </div>
+      </section>
+
+      <section class="overlay" id="screen-summary" hidden>
+        <h2 class="summary-title" id="summary-title"></h2>
+        <p class="big-score" id="summary-score">0</p>
+        <p class="record" id="summary-record" hidden>🏆 ¡Nuevo récord!</p>
+        <p class="muted" id="summary-stats"></p>
+        <button class="btn btn--open btn--wide" data-action="start">Jugar otra noche</button>
+      </section>
+
+      <div class="flash" id="flash"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn--reject" id="btn-reject" disabled>🚪 No abrir <kbd>←</kbd></button>
+      <button class="btn btn--open" id="btn-open" disabled>🍬 Dar dulces <kbd>→</kbd></button>
+    </div>
+    <p class="hint">Teclado ← → · En el celular desliza a los lados</p>
+  </main>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
