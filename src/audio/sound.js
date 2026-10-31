@@ -1,3 +1,5 @@
+import { createMusic } from './music.js';
+
 // Todos los sonidos se sintetizan con Web Audio: no hay archivos de audio.
 // El navegador exige un gesto del usuario antes de sonar, por eso existe unlock().
 const MUTE_KEY = 'toctoc:muted';
@@ -7,6 +9,7 @@ export function createSound() {
   let ctx = null;
   let master = null;
   let noise = null;
+  let music = null;
   let muted = loadMuted();
 
   function unlock() {
@@ -19,6 +22,7 @@ export function createSound() {
       master.connect(ctx.destination);
       noise = createNoiseBuffer(ctx);
       startAmbience();
+      music = createMusic(ctx, master, noise);
     }
     if (ctx.state === 'suspended') ctx.resume();
   }
@@ -56,7 +60,26 @@ export function createSound() {
     src.stop(t + dur + 0.05);
   }
 
-  // Viento (ruido filtrado que respira) y un zumbido grave de fondo.
+  // Ruido filtrado con envolvente de subida y bajada (respiración, crujidos).
+  function swell({ at = 0, dur, peak, freq, q = 0.8 }) {
+    if (!ctx) return;
+    const t = ctx.currentTime + at;
+    const src = ctx.createBufferSource();
+    const f = ctx.createBiquadFilter();
+    const g = ctx.createGain();
+    src.buffer = noise;
+    f.type = 'bandpass';
+    f.frequency.value = freq;
+    f.Q.value = q;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + dur * 0.4);
+    g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(master);
+    src.start(t, Math.random());
+    src.stop(t + dur + 0.05);
+  }
+
+  // Viento: ruido filtrado que respira.
   function startAmbience() {
     const wind = ctx.createBufferSource();
     wind.buffer = noise;
@@ -75,15 +98,6 @@ export function createSound() {
     wind.connect(band).connect(windGain).connect(master);
     wind.start();
     lfo.start();
-
-    for (const freq of [55, 82.4]) {
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.frequency.value = freq;
-      g.gain.value = 0.018;
-      osc.connect(g).connect(master);
-      osc.start();
-    }
   }
 
   return {
@@ -97,11 +111,59 @@ export function createSound() {
       if (master) master.gain.setTargetAtTime(muted ? 0 : MASTER_VOLUME, ctx.currentTime, 0.05);
       return muted;
     },
+    // Música (no hace nada hasta que el audio se desbloquea).
+    setIntensity(value) {
+      music?.setIntensity(value);
+    },
+    tension(duration) {
+      music?.tension(duration);
+    },
+    release() {
+      music?.release();
+    },
     knock() {
-      for (const at of [0, 0.26]) {
-        tone({ freq: 120, to: 50, at, dur: 0.18, gain: 0.9 });
-        burst({ at, dur: 0.07, gain: 0.5, freq: 500 });
+      for (const at of [0, 0.3, 0.55]) {
+        tone({ freq: 110, to: 42, at, dur: 0.22, gain: 1 });
+        burst({ at, dur: 0.09, gain: 0.6, freq: 450 });
       }
+      // La cadena tintinea con los golpes.
+      for (let i = 0; i < 5; i++) {
+        tone({ type: 'triangle', freq: 2800 + Math.random() * 2200, at: 0.05 + i * 0.09, dur: 0.08, gain: 0.03 });
+      }
+    },
+    // Tu respiración; `nervous` la hace corta y entrecortada.
+    breath(nervous = false) {
+      const inhale = nervous ? 0.45 : 0.9;
+      const exhale = nervous ? 0.5 : 1.2;
+      swell({ dur: inhale, peak: 0.08, freq: 1200 });
+      swell({ at: inhale + 0.08, dur: exhale, peak: 0.1, freq: 700 });
+    },
+    // Bisagra vieja al abrir la puerta.
+    creak() {
+      if (!ctx) return;
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const band = ctx.createBiquadFilter();
+      const g = ctx.createGain();
+      osc.type = 'sawtooth';
+      const curve = Float32Array.from({ length: 24 }, (_, i) => 70 + Math.sin(i * 1.7) * 25 + Math.random() * 40);
+      osc.frequency.setValueCurveAtTime(curve, t, 1.1);
+      band.type = 'bandpass';
+      band.frequency.value = 750;
+      band.Q.value = 5;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.3, t + 0.15);
+      g.gain.linearRampToValueAtTime(0.0001, t + 1.1);
+      osc.connect(band).connect(g).connect(master);
+      osc.start(t);
+      osc.stop(t + 1.2);
+    },
+    // Pestillo metálico.
+    lock() {
+      burst({ dur: 0.03, gain: 0.6, filter: 'highpass', freq: 2200 });
+      tone({ type: 'square', freq: 1700, dur: 0.04, gain: 0.06 });
+      burst({ at: 0.09, dur: 0.05, gain: 0.7, filter: 'highpass', freq: 1500 });
+      tone({ freq: 160, to: 90, at: 0.09, dur: 0.12, gain: 0.4 });
     },
     heartbeat() {
       tone({ freq: 62, to: 40, dur: 0.16, gain: 0.7 });
@@ -119,11 +181,16 @@ export function createSound() {
       tone({ type: 'triangle', freq: 392, to: 370, dur: 0.3, gain: 0.18 });
       tone({ type: 'triangle', freq: 311, to: 277, at: 0.28, dur: 0.5, gain: 0.18 });
     },
+    // Susto: grito de cuerdas agudas y disonantes sobre un golpe grave.
     scare() {
       for (const freq of [110, 117, 156, 233]) {
-        tone({ type: 'sawtooth', freq, to: freq * 0.5, dur: 0.9, gain: 0.12 });
+        tone({ type: 'sawtooth', freq, to: freq * 0.5, dur: 1.2, gain: 0.12 });
       }
-      burst({ dur: 0.5, gain: 0.6, filter: 'highpass', freq: 1200 });
+      for (const freq of [1046, 1109, 1480, 1568]) {
+        tone({ type: 'sawtooth', freq, to: freq * 1.06, dur: 1.1, gain: 0.05 });
+      }
+      tone({ freq: 70, to: 30, dur: 1.4, gain: 0.9 });
+      burst({ dur: 0.6, gain: 0.7, filter: 'highpass', freq: 1200 });
     },
   };
 }

@@ -97,6 +97,27 @@ body {
   border-bottom: 0;
 }
 
+.thought {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 28px 16px 14px;
+  text-align: center;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: #f1e6d6;
+  text-shadow: 0 2px 6px #000, 0 0 14px #000;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+}
+.thought::before { content: '“'; }
+.thought::after { content: '”'; }
+.thought.is-new { animation: thought-in 0.6s ease-out; }
+@keyframes thought-in { from { opacity: 0; transform: translateY(6px); } }
+
 .streak {
   position: absolute;
   top: 14px;

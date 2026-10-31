@@ -10,6 +10,7 @@ export function createHud(bus) {
   const streak = $('streak');
   const timer = $('timer-fill');
   const bubble = $('bubble');
+  const thought = $('thought');
 
   bus.on('run:changed', ({ run, level }) => {
     hour.textContent = level.hour;
@@ -33,6 +34,17 @@ export function createHud(bus) {
     },
     hush() {
       bubble.hidden = true;
+    },
+    // Lo que piensa tu personaje, como subtítulo.
+    think(text) {
+      thought.textContent = text;
+      thought.hidden = false;
+      thought.classList.remove('is-new');
+      void thought.offsetWidth;
+      thought.classList.add('is-new');
+    },
+    clearThought() {
+      thought.hidden = true;
     },
   };
 }

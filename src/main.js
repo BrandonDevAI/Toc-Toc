@@ -4,6 +4,7 @@ import { createGameLoop } from './core/gameLoop.js';
 import { NIGHT } from './game/difficulty.js';
 import { createVisitor } from './game/visitorFactory.js';
 import { createRun, resolveDecision } from './game/rules.js';
+import { THOUGHTS } from './data/thoughts.js';
 import { createVisitorRenderer } from './render/visitorRenderer.js';
 import { playEffect } from './render/effects.js';
 import { createHud } from './ui/hud.js';
@@ -12,10 +13,13 @@ import { createControls } from './ui/controls.js';
 import { createSound } from './audio/sound.js';
 
 const HOUR_INTRO_TIME = 2;
-const KNOCK_TIME = 1.1;
-const RESULT_TIME = 1.9;
-const HEARTBEAT_FROM = 0.4; // fracción del tiempo restante en la que empieza el latido
+const KNOCK_TIME = 1.4;
+const RESULT_TIME = 2.2;
+const HURRY_AT = 0.4; // fracción del tiempo restante en la que entran los nervios
 const HEARTBEAT_EVERY = 0.75;
+const BREATH_CALM = 2.3;
+const BREATH_NERVOUS = 1.1;
+const LATE_HOUR = 3;
 const BEST_KEY = 'toctoc:best';
 
 const RESULT_SOUND = {
@@ -24,6 +28,8 @@ const RESULT_SOUND = {
   sadKid: 'sad',
   attacked: 'scare',
 };
+
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
 const bus = createEventBus();
 const stage = document.getElementById('stage');
@@ -40,14 +46,20 @@ let visitor = null;
 let visitorCount = 0;
 let timeLeft = 0;
 let nextHeartbeat = 0;
+let nextBreath = 0;
+let hurried = false;
 
 const level = () => NIGHT[Math.min(run.hourIndex, NIGHT.length - 1)];
-const syncHud = () => bus.emit('run:changed', { run, level: level() });
+const syncHud = () => {
+  bus.emit('run:changed', { run, level: level() });
+  renderer.setCandy(run.candy);
+};
 
 const sm = createStateMachine({
   menu: {
     enter() {
       renderer.setVisitor(null);
+      hud.clearThought();
       screens.menu(loadBest());
     },
   },
@@ -55,6 +67,8 @@ const sm = createStateMachine({
     enter() {
       renderer.setVisitor(null);
       renderer.setAtmosphere(level());
+      sound.setIntensity(run.hourIndex / (NIGHT.length - 1));
+      hud.clearThought();
       screens.hour(level());
       syncHud();
     },
@@ -66,9 +80,11 @@ const sm = createStateMachine({
     enter() {
       visitor = createVisitor(++visitorCount, level());
       renderer.setVisitor(null);
+      renderer.knock();
       screens.knock();
       playEffect(stage, 'is-knocking');
       sound.knock();
+      hud.think(pick(THOUGHTS.knock));
     },
     update(dt, elapsed) {
       if (elapsed > KNOCK_TIME) sm.change('peek');
@@ -79,28 +95,51 @@ const sm = createStateMachine({
       screens.hideAll();
       renderer.setVisitor(visitor);
       timeLeft = level().timer;
-      nextHeartbeat = level().timer * HEARTBEAT_FROM;
+      nextHeartbeat = level().timer * HURRY_AT;
+      nextBreath = 0.3;
+      hurried = false;
       hud.say(visitor.dialogue);
+      const pool = run.hourIndex >= LATE_HOUR ? [...THOUGHTS.peek, ...THOUGHTS.late] : THOUGHTS.peek;
+      hud.think(pick(pool));
       controls.enable(run.candy > 0);
+      sound.tension(level().timer);
     },
-    update(dt) {
+    update(dt, elapsed) {
       timeLeft -= dt;
-      hud.setTimer(timeLeft / level().timer);
+      const fraction = timeLeft / level().timer;
+      hud.setTimer(fraction);
+      renderer.setTension(1 - fraction);
+
+      if (!hurried && fraction < HURRY_AT) {
+        hurried = true;
+        hud.think(pick(THOUGHTS.hurry));
+      }
       if (timeLeft <= nextHeartbeat && timeLeft > 0) {
         sound.heartbeat();
         nextHeartbeat -= HEARTBEAT_EVERY;
+      }
+      if (elapsed >= nextBreath) {
+        sound.breath(hurried);
+        nextBreath = elapsed + (hurried ? BREATH_NERVOUS : BREATH_CALM);
       }
       if (timeLeft <= 0) decide('timeout');
     },
     exit() {
       controls.disable();
       hud.hush();
+      hud.clearThought();
+      sound.release();
+      renderer.setTension(0);
+      renderer.setIntent(null);
     },
   },
   result: {
     enter(outcome) {
+      const opened = outcome.kind === 'happyKid' || outcome.kind === 'attacked';
       screens.result(outcome);
       renderer.react(outcome.kind);
+      if (opened) sound.creak();
+      else sound.lock();
       sound[RESULT_SOUND[outcome.kind]]();
       syncHud();
       if (outcome.kind === 'attacked') {
@@ -165,14 +204,17 @@ function saveBest(score) {
   }
 }
 
-bus.on('decision', (decision) => {
-  if (sm.name === 'peek') decide(decision);
-});
 function renderMute() {
   muteBtn.textContent = sound.muted ? '🔇' : '🔊';
   muteBtn.setAttribute('aria-label', sound.muted ? 'Activar sonido' : 'Silenciar');
 }
 
+bus.on('decision', (decision) => {
+  if (sm.name === 'peek') decide(decision);
+});
+bus.on('intent', (intent) => {
+  if (sm.name === 'peek') renderer.setIntent(intent);
+});
 screens.onStart(startRun);
 muteBtn.addEventListener('click', () => {
   sound.toggleMute();

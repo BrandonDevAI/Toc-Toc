@@ -1,8 +1,11 @@
 import { createPeephole } from './peephole.js';
 import { createFog } from './fog.js';
+import { createDoor, LENS } from './door.js';
+import { createHands } from './hands.js';
 
-// Dibuja el porche y al visitante por capas. Todo es procedural: no hay imágenes.
-// La escena se pinta en un canvas aparte y la mirilla la compone en el canvas visible.
+// Vista en primera persona: estás detrás de la puerta, con el tazón de dulces en una mano.
+// El porche y el visitante se pintan en un canvas aparte (`scene`); la mirilla lo muestra
+// en el lente, y al abrir la puerta se ve completo.
 // El visitante se dibuja en un espacio local con los pies en y=0 y ~230 unidades de alto.
 const W = 360;
 const H = 440;
@@ -10,6 +13,11 @@ const HORIZON = 262;
 const FEET_Y = 352;
 const TAU = Math.PI * 2;
 const APPEAR_TIME = 0.35;
+const LENS_SOURCE = { x: 180, y: 228, radius: 150 }; // parte del porche que cabe en la mirilla
+const VIEW_OVERSCAN = 1.03; // margen para que el balanceo no deje bordes vacíos
+
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const easeInOut = (t) => t * t * (3 - 2 * t);
 
 export function createVisitorRenderer(canvas) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -24,9 +32,14 @@ export function createVisitorRenderer(canvas) {
   const ctx = scene.getContext('2d');
   ctx.scale(dpr, dpr);
 
-  const peephole = createPeephole(W, H, dpr);
+  const peephole = createPeephole(LENS, LENS_SOURCE, dpr);
   const fog = createFog(W, H, HORIZON);
+  const door = createDoor(W, H, dpr);
+  const hands = createHands();
   let flicker = 0;
+  let tension = 0;
+  let intent = null;
+  let candy = 0;
 
   const stars = Array.from({ length: 45 }, () => ({
     x: Math.random() * W,
@@ -98,9 +111,25 @@ export function createVisitorRenderer(canvas) {
       fog.setDensity(level.fog);
       flicker = level.flicker;
     },
+    // 0 = calma, 1 = se acabó el tiempo. Acelera respiración, temblor y visión de túnel.
+    setTension(value) {
+      tension = value;
+    },
+    // Hacia dónde va tu mano mientras dudas: 'open', 'reject' o null.
+    setIntent(value) {
+      intent = value;
+    },
+    setCandy(count) {
+      candy = count;
+    },
+    knock() {
+      door.knock(time);
+    },
     update(dt) {
       time += dt;
       fog.update(dt);
+      door.update(dt);
+      hands.update(dt, { intent, reaction, sinceReaction: time - reactedAt });
     },
     render() {
       ctx.clearRect(0, 0, W, H);
@@ -109,14 +138,78 @@ export function createVisitorRenderer(canvas) {
       if (visitor) drawCurrentVisitor();
       fog.draw(ctx, { front: true });
 
+      const t = reaction ? time - reactedAt : 0;
+      const opens = reaction === 'happyKid' || reaction === 'attacked';
+      const locks = reaction === 'avoided' || reaction === 'sadKid';
+      const knobTurn = opens ? -0.8 * clamp01(t / 0.25) : intent === 'open' ? -0.15 : 0;
+      const doorOpen = opens ? easeInOut(clamp01((t - 0.25) / 0.5)) : 0;
+      const boltTurn = locks ? clamp01(t / 0.2) : 0;
+
+      // Balanceo de la cabeza, más fuerte con los nervios, y un golpe en cada latido.
+      const sway = 1.5 + tension * 3;
+      const freq = 0.6 + tension * 1.4;
+      const beat = tension > 0.6 ? Math.max(0, Math.sin(time * 7.5)) ** 8 * 0.015 : 0;
+      view.save();
+      view.clearRect(0, 0, W, H);
+      view.translate(W / 2, H / 2);
+      view.scale(VIEW_OVERSCAN + beat, VIEW_OVERSCAN + beat);
+      view.translate(-W / 2 + Math.sin(time * freq) * sway, -H / 2 + Math.cos(time * freq * 0.8) * sway * 0.7);
+
+      if (doorOpen > 0) {
+        view.drawImage(scene, 0, 0, W, H);
+        drawVignette(view);
+      }
+
+      // La puerta gira sobre la bisagra izquierda al abrirse.
+      view.save();
+      view.scale(1 - 0.88 * doorOpen, 1);
+      door.draw(view, { time, knobTurn, boltTurn });
       peephole.draw(view, scene);
+      if (doorOpen > 0) {
+        view.fillStyle = `rgba(0, 0, 0, ${doorOpen * 0.6})`;
+        view.fillRect(0, 0, W, H);
+      }
+      view.restore();
+
+      hands.draw(view, { time, candy, tension });
+      drawRoomLight(view, time, tension);
+      view.restore();
+
       if (reaction === 'attacked') {
-        const t = time - reactedAt;
-        view.fillStyle = `rgba(160, 0, 20, ${Math.max(0, 0.45 - t * 0.3)})`;
+        view.fillStyle = `rgba(160, 0, 20, ${Math.max(0, 0.5 - (t - 0.3) * 0.3)})`;
         view.fillRect(0, 0, W, H);
       }
     },
   };
+}
+
+// Vela detrás de ti: luz cálida que titila desde abajo y oscuridad alrededor.
+// Con tensión alta, los bordes se ponen rojos (visión de túnel).
+function drawRoomLight(ctx, time, tension) {
+  const flick = 0.85 + 0.1 * Math.sin(time * 9.1) + 0.05 * Math.sin(time * 23.7);
+  const light = ctx.createRadialGradient(110, 470, 30, 150, 360, 520);
+  light.addColorStop(0, `rgba(255, 140, 50, ${0.14 * flick})`);
+  light.addColorStop(0.35, 'rgba(0, 0, 0, 0)');
+  light.addColorStop(1, `rgba(0, 0, 0, ${0.5 + (1 - flick) * 0.6})`);
+  ctx.fillStyle = light;
+  ctx.fillRect(0, 0, W, H);
+
+  if (tension > 0.4) {
+    const k = (tension - 0.4) / 0.6;
+    const tunnel = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.7);
+    tunnel.addColorStop(0, 'rgba(90, 0, 0, 0)');
+    tunnel.addColorStop(1, `rgba(90, 0, 0, ${0.45 * k})`);
+    ctx.fillStyle = tunnel;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function drawVignette(ctx) {
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
+  v.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  v.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, W, H);
 }
 
 // ---------- Escenario ----------
